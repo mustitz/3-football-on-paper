@@ -7,6 +7,7 @@ int test_magic_step3(void);
 int test_step(void);
 int test_step2(void);
 int test_history(void);
+int test_step12_overflow_error(void);
 int test_random_ai(void);
 int test_rollout(void);
 int test_node_cache(void);

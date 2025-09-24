@@ -55,6 +55,7 @@ const struct test_item tests[] = {
     { "step", &test_step },
     { "step2", &test_step2 },
     { "history", &test_history },
+    { "step12-overflow", &test_step12_overflow_error },
     { "random-ai", &test_random_ai },
     { "rollout", &test_rollout },
     { "node-cache", &test_node_cache },

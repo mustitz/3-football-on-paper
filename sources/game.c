@@ -18,7 +18,7 @@ steps_t magic_step3[64];
 static inline int check_dim(const int value)
 {
     if (value <= 4) {
-	    return errno = EINVAL;
+        return errno = EINVAL;
     }
 
     if (value % 2 == 0) {
@@ -361,7 +361,7 @@ static uint64_t state_gen_step12(const struct state * const me)
         enum step step1 = extract_step(&possible0);
         const int ball1 = connections[QSTEPS*ball0 + step1];
         if (ball1 < 0) {
-            result |= 0xFF << (8*step1);
+            result |= 0xFFull << (8*step1);
             continue;
         }
 
@@ -1167,6 +1167,70 @@ int test_history(void)
     destroy_state(state);
     destroy_geometry(geometry);
     free_history(me);
+    return 0;
+}
+
+int test_step12_overflow_error(void)
+{
+    struct geometry * geometry = create_std_geometry(21, 31, 6, 5);
+    if (!geometry) {
+        test_fail("create_std_geometry failed");
+    }
+
+    struct ai ai_storage;
+    const int status = init_mcts_ai(&ai_storage, geometry);
+    if (status != 0) {
+        test_fail("init_mcts_ai failed, status=%d", status);
+    }
+
+    enum step moves[] = {
+        NORTH_EAST, NORTH_EAST, NORTH_WEST,
+        SOUTH_WEST, SOUTH, NORTH_EAST, SOUTH,
+        NORTH_EAST, NORTH_EAST, WEST,
+        NORTH_EAST, NORTH_WEST, SOUTH, SOUTH,
+        NORTH_EAST, NORTH_EAST, WEST,
+        NORTH_EAST, SOUTH_EAST, SOUTH_WEST,
+        EAST, NORTH_EAST, NORTH_WEST,
+        NORTH, NORTH_WEST, SOUTH, SOUTH,
+        NORTH_EAST, NORTH_EAST, NORTH_EAST,
+        SOUTH_EAST, SOUTH_WEST, NORTH,
+        SOUTH_WEST, SOUTH, EAST,
+        SOUTH_WEST, WEST, NORTH,
+        SOUTH_WEST, NORTH_WEST, WEST,
+        SOUTH_WEST, SOUTH_EAST, NORTH_EAST,
+        SOUTH_EAST, EAST, EAST,
+        SOUTH_WEST, WEST, NORTH_WEST,
+        SOUTH_WEST, NORTH_WEST, NORTH_WEST,
+        SOUTH_WEST, SOUTH_EAST, NORTH,
+        SOUTH_EAST, SOUTH_WEST, NORTH_WEST,
+        SOUTH_WEST, SOUTH_EAST, NORTH,
+        SOUTH_EAST, EAST, NORTH,
+        SOUTH_EAST, NORTH_EAST, WEST,
+        NORTH_EAST, SOUTH_EAST, EAST,
+        SOUTH_WEST, SOUTH_WEST, NORTH,
+        SOUTH_WEST, SOUTH_EAST, NORTH_EAST,
+        SOUTH_EAST, SOUTH_WEST, NORTH,
+        SOUTH_WEST, SOUTH_EAST, NORTH_EAST,
+        NORTH_EAST, SOUTH_EAST, SOUTH_WEST, NORTH_WEST, SOUTH,
+        NORTH_EAST
+    };
+
+    const int num_moves = sizeof(moves) / sizeof(moves[0]);
+
+    for (int i = 0; i < num_moves; i++) {
+        const int ai_status = ai_storage.do_step(&ai_storage, moves[i]);
+        if (ai_status != 0) {
+            test_fail("AI rejected valid move %d with status %d", i + 1, ai_status);
+        }
+    }
+
+    const int invalid_status = ai_storage.do_step(&ai_storage, NORTH_EAST);
+    if (invalid_status == 0) {
+        test_fail("AI incorrectly accepted invalid NE move after penalty");
+    }
+
+    ai_storage.free(&ai_storage);
+    destroy_geometry(geometry);
     return 0;
 }
 
