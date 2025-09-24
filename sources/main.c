@@ -20,6 +20,7 @@
 #define KW_STEPS           13
 #define KW_SRAND           14
 #define KW_LOAD            15
+#define KW_DEBUG           16
 
 #define ITEM(name) { #name, KW_##name }
 struct keyword_desc keywords[] = {
@@ -39,6 +40,7 @@ struct keyword_desc keywords[] = {
     ITEM(STEPS),
     ITEM(SRAND),
     ITEM(LOAD),
+    ITEM(DEBUG),
     { NULL, 0 }
 };
 
@@ -1028,6 +1030,16 @@ void process_load(struct cmd_parser * restrict const me)
     fclose(file);
 }
 
+void debug_trap(void)
+{
+    printf("Debug trap!\n");
+}
+
+void process_debug(struct cmd_parser * restrict const me)
+{
+    /* Put debug code here, user debug_trap for breaks */
+}
+
 int process_cmd(struct cmd_parser * restrict const me, const char * const line)
 {
     struct line_parser * restrict const lp = &me->line_parser;
@@ -1081,6 +1093,9 @@ int process_cmd(struct cmd_parser * restrict const me, const char * const line)
             break;
         case KW_LOAD:
             process_load(me);
+            break;
+        case KW_DEBUG:
+            process_debug(me);
             break;
         default:
             error(lp, "Unexpected keyword at the begginning of the line.");
