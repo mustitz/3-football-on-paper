@@ -19,6 +19,7 @@
 #define KW_SCORE           12
 #define KW_STEPS           13
 #define KW_SRAND           14
+#define KW_LOAD            15
 
 #define ITEM(name) { #name, KW_##name }
 struct keyword_desc keywords[] = {
@@ -37,6 +38,7 @@ struct keyword_desc keywords[] = {
     ITEM(SCORE),
     ITEM(STEPS),
     ITEM(SRAND),
+    ITEM(LOAD),
     { NULL, 0 }
 };
 
@@ -573,7 +575,7 @@ void process_status(struct cmd_parser * restrict const me)
     printf("Status:           %s\n", status_strs[state_status(state)]);
 }
 
-void process_new(struct cmd_parser * restrict const me)
+int process_new(struct cmd_parser * restrict const me)
 {
     struct line_parser * restrict const lp = &me->line_parser;
 
@@ -584,86 +586,86 @@ void process_new(struct cmd_parser * restrict const me)
     status = parser_try_int(lp, &width);
     if (status != 0) {
         error(lp, "Board width integer constant expected in NEW command.");
-        return;
+        return -1;
     }
 
     if (width % 2 != 1) {
         error(lp, "Board width integer constant should be odd number.");
-        return;
+        return -1;
     }
 
     if (width <= 4) {
         error(lp, "Board width integer constant should be at least 5 or more.");
-        return;
+        return -1;
     }
 
     parser_skip_spaces(lp);
     status = parser_try_int(lp, &height);
     if (status != 0) {
         error(lp, "Board height integer constant expected in NEW command.");
-        return;
+        return -1;
     }
 
     if (height % 2 != 1) {
         error(lp, "Board height integer constant should be odd number.");
-        return;
+        return -1;
     }
 
     if (height <= 4) {
         error(lp, "Board height integer constant should be at least 5 or more.");
-        return;
+        return -1;
     }
 
     parser_skip_spaces(lp);
     status = parser_try_int(lp, &goal_width);
     if (status != 0) {
         error(lp, "Board goal width integer constant expected in NEW command.");
-        return;
+        return -1;
     }
 
     if (goal_width % 2 != 0) {
         error(lp, "Goal width integer constant should be even number.");
-        return;
+        return -1;
     }
 
     if (goal_width <= 1) {
         error(lp, "Goal height integer constant should be at least 2 or more.");
-        return;
+        return -1;
     }
 
     if (goal_width + 3 > width) {
         error(lp, "Goal height integer constant should be less than width-1 = %d.", width-1);
-        return;
+        return -1;
     }
 
     parser_skip_spaces(lp);
     status = parser_try_int(lp, &free_kick_len);
     if (status != 0) {
         error(lp, "Free kick len integer constant expected in NEW command.");
-        return;
+        return -1;
     }
 
     if (free_kick_len <= 3) {
         error(lp, "Free kick len should be at least 4 or more.");
-        return;
+        return -1;
     }
 
     if (free_kick_len >= width/2) {
         error(lp, "Free kick length should be less than width half = %d.", width/2);
-        return;
+        return -1;
     }
 
     if (free_kick_len >= height/2) {
         error(lp, "Free kick length should be less than height half = %d.", height/2);
-        return;
+        return -1;
     }
 
     if (!parser_check_eol(lp)) {
         error(lp, "End of line expected (NEW command is completed), but someting was found.");
-        return;
+        return -1;
     }
 
-    new_game(me, width, height, goal_width, free_kick_len);
+    return new_game(me, width, height, goal_width, free_kick_len);
 }
 
 void process_step(struct cmd_parser * restrict const me)
@@ -948,6 +950,84 @@ void process_srand(struct cmd_parser * restrict const me)
     srand((unsigned int)value);
 }
 
+void process_load(struct cmd_parser * restrict const me)
+{
+    struct line_parser * restrict const lp = &me->line_parser;
+
+    int status = parser_read_last_path(lp);
+    if (status != 0) {
+        error(lp, "Filename expected in LOAD command.");
+        return;
+    }
+
+    const size_t filename_len = lp->current - lp->lexem_start;
+    char filename[filename_len + 1];
+    memcpy(filename, lp->lexem_start, filename_len);
+    filename[filename_len] = '\0';
+
+    FILE * file = fopen(filename, "r");
+    if (!file) {
+        error(lp, "Cannot open file %s.", filename);
+        return;
+    }
+
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    int game_created = 0;
+
+    while ((read = getline(&line, &len, file)) != -1) {
+        parser_set_line(lp, line);
+        parser_skip_spaces(lp);
+
+        status = parser_read_id(lp);
+        if (status == 0) {
+            if (!is_match("GAME", lp->lexem_start, lp->current - lp->lexem_start)) {
+                continue;
+            }
+
+            if (game_created) {
+                printf("GAME occured twice\n");
+                break;
+            }
+
+            status = process_new(me);
+            if (status != 0) {
+                printf("Failed to create game, status %d\n", status);
+                break;
+            }
+
+            game_created = 1;
+            continue;
+        }
+
+        int player;
+        parser_skip_spaces(lp);
+        status = parser_try_int(lp, &player);
+        if (status != 0) {
+            continue;
+        }
+
+        if (player != 1 && player != 2) {
+            continue;
+        }
+
+        if (!game_created) {
+            printf("Warnings: No GAME line found before moves, use default\n");
+            new_game(me, 15, 23, 4, 5);
+            game_created = 1;
+        }
+
+        parser_skip_spaces(lp);
+        process_step(me);
+    }
+
+    if (line) {
+        free(line);
+    }
+    fclose(file);
+}
+
 int process_cmd(struct cmd_parser * restrict const me, const char * const line)
 {
     struct line_parser * restrict const lp = &me->line_parser;
@@ -998,6 +1078,9 @@ int process_cmd(struct cmd_parser * restrict const me, const char * const line)
             break;
         case KW_SRAND:
             process_srand(me);
+            break;
+        case KW_LOAD:
+            process_load(me);
             break;
         default:
             error(lp, "Unexpected keyword at the begginning of the line.");

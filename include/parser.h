@@ -107,6 +107,7 @@ int parser_read_last_int( struct line_parser * restrict const me, int * restrict
 int parser_read_float( struct line_parser * restrict const me, float * restrict const value);
 int parser_read_keyword(struct line_parser * restrict const me, const struct keyword_tracker * const tracker);
 int parser_read_id(struct line_parser * restrict const me);
+int parser_read_last_path(struct line_parser * restrict const me);
 
 /* Dependency */
 void * multialloc(const size_t n, const size_t * const sizes,

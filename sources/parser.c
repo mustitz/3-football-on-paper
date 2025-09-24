@@ -278,6 +278,31 @@ int parser_read_id(struct line_parser * restrict const me)
     }
 }
 
+int parser_read_last_path(struct line_parser * restrict const me)
+{
+    parser_skip_spaces(me);
+
+    const unsigned char * const lexem_start = me->current;
+
+    while (!is_space_char(*me->current)) {
+        ++me->current;
+    }
+
+    if (me->current <= lexem_start) {
+        return PARSER_ERROR__END_OF_LINE;
+    }
+
+    const unsigned char * const lexem_end = me->current;
+
+    if (!parser_check_eol(me)) {
+        return PARSER_ERROR__NO_EOL;
+    }
+
+    me->lexem_start = lexem_start;
+    me->current = lexem_end;
+    return 0;
+}
+
 
 
 #ifdef MAKE_CHECK

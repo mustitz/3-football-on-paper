@@ -42,3 +42,10 @@ ai go
 
 ai info
       Print AI parameters.
+
+load filename
+      Load game from file. File format:
+      GAME width height goal_width free_kick_length
+      1 direction1 direction2 ...
+      2 direction1 direction2 ...
+      ...
