@@ -12,6 +12,7 @@ class Protocol:
         self.failure = None
         self.result = None
         self.qmoves = 0
+        self.game_id = None
 
     def move(self, player, move, stats):
         self.moves.append(Move(player, move, stats))
@@ -80,6 +81,8 @@ class Protocol:
         with open(fn, 'w') as f:
             header(f)
             self.detailed(2, f)
+
+        self.game_id = n
 
     def detailed(self, player, f):
         for m in self.moves:
