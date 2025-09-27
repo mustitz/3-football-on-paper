@@ -12,6 +12,7 @@ Makefile
 Makefile.in
 .dirstamp
 
+/CLAUDE.md
 /COPYING
 /INSTALL
 /aclocal.m4

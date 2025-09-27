@@ -866,7 +866,7 @@ static enum step ai_go(
         return choice;
     }
 
-	double start = clock();
+    double start = clock();
 
     init_cache(me);
 
@@ -926,9 +926,9 @@ static enum step ai_go(
     }
 
     const int index = qbest == 1 ? 0 : rand() % qbest;
-	enum step result = best_steps[index];
+    enum step result = best_steps[index];
 
-	if (explanation) {
+    if (explanation) {
         double finish = clock();
         explanation->time = (finish - start) / CLOCKS_PER_SEC;
 
