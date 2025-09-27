@@ -20,6 +20,8 @@ void * multialloc(
 #define GOAL_2   -2
 #define NO_WAY   -3
 
+#define CACHE_AUTO_CALCULATE 0
+
 enum step {
     NORTH_WEST = 0,
     NORTH,

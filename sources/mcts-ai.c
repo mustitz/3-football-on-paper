@@ -8,10 +8,10 @@
 
 #define QPARAMS   4
 
-static const uint32_t     def_cache = 2 * 1024 * 1024;
-static const uint32_t    def_qthink =     1024 * 1024;
-static const uint32_t def_max_depth =             128;
-static const  float           def_C =             1.4;
+static const uint32_t     def_cache = CACHE_AUTO_CALCULATE;
+static const uint32_t    def_qthink = 1024 * 1024;
+static const uint32_t def_max_depth =         128;
+static const  float           def_C =         1.4;
 
 struct free_kick_serie
 {
@@ -118,6 +118,10 @@ static int set_cache(
 
 static int init_cache(struct mcts_ai * restrict const me)
 {
+    if (me->cache == CACHE_AUTO_CALCULATE) {
+        me->cache = 4096 + me->qthink;
+    }
+
     if (me->nodes == NULL && me->cache > 0) {
         me->nodes = malloc(me->cache);
         if (me->nodes == NULL) {
