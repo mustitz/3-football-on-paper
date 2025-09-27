@@ -18,9 +18,10 @@
 #define KW_TIME            11
 #define KW_SCORE           12
 #define KW_STEPS           13
-#define KW_SRAND           14
-#define KW_LOAD            15
-#define KW_DEBUG           16
+#define KW_CACHE           14
+#define KW_SRAND           15
+#define KW_LOAD            16
+#define KW_DEBUG           17
 
 #define ITEM(name) { #name, KW_##name }
 struct keyword_desc keywords[] = {
@@ -38,6 +39,7 @@ struct keyword_desc keywords[] = {
     ITEM(TIME),
     ITEM(SCORE),
     ITEM(STEPS),
+    ITEM(CACHE),
     ITEM(SRAND),
     ITEM(LOAD),
     ITEM(DEBUG),
@@ -48,7 +50,7 @@ const char * step_names[QSTEPS] = {
     "NW", "N", "NE", "E", "SE", "S", "SW", "W"
 };
 
-enum ai_go_flags { EXPLAIN_TIME, EXPLAIN_SCORE, EXPLAIN_STEPS };
+enum ai_go_flags { EXPLAIN_TIME, EXPLAIN_SCORE, EXPLAIN_STEPS, EXPLAIN_CACHE };
 
 struct ai_desc
 {
@@ -361,8 +363,9 @@ static void explain_step(
     const unsigned int time_mask = 1 << EXPLAIN_TIME;
     const unsigned int score_mask = 1 << EXPLAIN_SCORE;
     const unsigned int step_mask = 1 << EXPLAIN_STEPS;
+    const unsigned int cache_mask = 1 << EXPLAIN_CACHE;
 
-    const unsigned int line_mask = time_mask | score_mask;
+    const unsigned int line_mask = time_mask | score_mask | cache_mask;
     if (flags & line_mask) {
         printf("  %2s", step_names[step]);
         if (flags & time_mask) {
@@ -374,6 +377,15 @@ static void explain_step(
                 printf(" score %5.1f%%", 100.0 * score);
             } else {
                 printf(" score N/A");
+            }
+        }
+        if (flags & cache_mask) {
+            if (explanation->cache.total > 0) {
+                const double cache_pct = (double)explanation->cache.used / explanation->cache.total * 100.0;
+                printf(" cache %.1f%% from %u", cache_pct, explanation->cache.total);
+                if (explanation->cache.bad_alloc > 0) {
+                    printf(" BAD=%u", explanation->cache.bad_alloc);
+                }
             }
         }
         printf("\n");
@@ -887,6 +899,9 @@ void process_ai_go(struct cmd_parser * restrict const me)
                 break;
             case KW_STEPS:
                 flags |= 1 << EXPLAIN_STEPS;
+                break;
+            case KW_CACHE:
+                flags |= 1 << EXPLAIN_CACHE;
                 break;
             default:
                 error(lp, "Invalid explain flag in AI GO command.");

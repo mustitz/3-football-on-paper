@@ -153,12 +153,21 @@ struct step_stat
     double score;
 };
 
+struct cache_explanation
+{
+    uint32_t used;
+    uint32_t total;
+    uint32_t good_alloc;
+    uint32_t bad_alloc;
+};
+
 struct ai_explanation
 {
     size_t qstats;
     const struct step_stat * stats;
     double time;
     double score;
+    struct cache_explanation cache;
 };
 
 enum param_type

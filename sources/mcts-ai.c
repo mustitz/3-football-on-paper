@@ -852,6 +852,10 @@ static enum step ai_go(
         explanation->stats = NULL;
         explanation->time = 0.0;
         explanation->score = -1.0;
+        explanation->cache.used = 0;
+        explanation->cache.total = 0;
+        explanation->cache.good_alloc = 0;
+        explanation->cache.bad_alloc = 0;
     }
 
     const steps_t steps = state_get_steps(me->state);
@@ -965,6 +969,12 @@ static enum step ai_go(
         if (qstats > 2) {
             qsort(me->stats + 1, qstats - 1, sizeof(struct step_stat), compare_stats);
         }
+
+        // Fill cache statistics in explanation
+        explanation->cache.used = me->used_nodes;
+        explanation->cache.total = me->total_nodes;
+        explanation->cache.good_alloc = me->good_node_alloc;
+        explanation->cache.bad_alloc = me->bad_node_alloc;
     }
 
     return result;
