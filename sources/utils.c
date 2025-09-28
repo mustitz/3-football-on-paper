@@ -1,5 +1,7 @@
 #include "paper-football.h"
 
+#include <stdio.h>
+
 static inline ptrdiff_t ptr_diff(const void * const a, const void * const b)
 {
     const char * const byte_ptr_a = a;
@@ -44,6 +46,11 @@ void * multialloc(const size_t n, const size_t * const sizes,
     }
 
     return result;
+}
+
+void debug_trap()
+{
+    printf("Debug trap!\n");
 }
 
 

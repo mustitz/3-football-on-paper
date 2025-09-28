@@ -14,6 +14,7 @@ void * multialloc(
     void * restrict * ptrs,
     const size_t granularity);
 
+void debug_trap(void);
 
 
 #define GOAL_1   -1

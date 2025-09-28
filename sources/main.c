@@ -1045,11 +1045,6 @@ void process_load(struct cmd_parser * restrict const me)
     fclose(file);
 }
 
-void debug_trap(void)
-{
-    printf("Debug trap!\n");
-}
-
 void process_debug(struct cmd_parser * restrict const me)
 {
     /* Put debug code here, user debug_trap for breaks */
