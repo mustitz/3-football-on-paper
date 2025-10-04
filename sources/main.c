@@ -2,6 +2,7 @@
 #include "paper-football.h"
 #include "parser.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <time.h>
 
@@ -347,6 +348,32 @@ static void restore_ai(
     }
 }
 
+static void print_warn_param(const char * name, uint64_t value)
+{
+    if (name == NULL) {
+        return;
+    }
+    printf(" %s = %" PRIu64 " (0x%016" PRIx64 ")", name, value, value);
+    const int64_t signed_value = (int64_t)value;
+    if (signed_value < 0) {
+        printf(" [%" PRId64 "]", signed_value);
+    }
+}
+
+static void notify_warns(struct ai * restrict const ai)
+{
+    for (int i = 0; ; ++i) {
+        const struct warn * warn = ai->get_warn(ai, i);
+        if (warn == NULL) {
+            break;
+        }
+        printf("WARN W%04d: %s", warn->num, warn->msg);
+        print_warn_param(warn->param1, warn->value1);
+        print_warn_param(warn->param2, warn->value2);
+        printf(" at %s:%d\n", warn->file_name, warn->line_num);
+    }
+}
+
 static void explain_step(
     const enum step step,
     const unsigned int flags,
@@ -436,6 +463,7 @@ static void ai_go(
 
         history_push(&me->history, state);
         explain_step(step, flags, &explanation);
+        notify_warns(ai);
 
         const int status = me->ai->do_step(me->ai, step);
         if (status != 0) {
@@ -495,6 +523,7 @@ static void ai_debug(struct cmd_parser * restrict const me)
     }
 
     explain_step(step, 0xFFFFFFFF, &explanation);
+    notify_warns(ai);
 }
 
 static void ai_info(struct cmd_parser * restrict const me)
