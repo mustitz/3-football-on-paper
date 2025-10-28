@@ -106,6 +106,50 @@ static inline void dlist_move_all(
 void debug_trap(void);
 
 
+
+#define WARN(me, name, pname1, pvalue1, pname2, pvalue2) \
+    warns_add(me, WARN_##name, pname1, (uint64_t)pvalue1, pname2, (uint64_t)pvalue2, __FILENAME__, __LINE__)
+
+enum warn_nums {
+    WARN_WRONG_WARN = 1,
+    WARN_STEPS_ARE_CYCLES,
+    WARN_ACTIVE_OOR,
+    WARN_INCONSISTERN_STEPS_PRIORITY,
+    QWARNS
+};
+
+struct warn {
+    const char * msg;
+    const char * param1;
+    uint64_t value1;
+    const char * param2;
+    uint64_t value2;
+    const char * file_name;
+    int line_num;
+    int num;
+};
+
+struct warns
+{
+    struct warn warns[QWARNS];
+    int qwarns;
+};
+
+void warns_init(struct warns * const ws);
+void warns_reset(struct warns * const ws);
+const struct warn * warns_get(const struct warns * const ws, int index);
+void warns_add(
+    struct warns * restrict const ws,
+    int num,
+    const char * param1,
+    uint64_t value1,
+    const char * param2,
+    uint64_t value2,
+    const char * file_name,
+    int line_num);
+
+
+
 #define GOAL_1   -1
 #define GOAL_2   -2
 #define NO_WAY   -3
@@ -291,22 +335,12 @@ struct ai_param
     size_t offset;
 };
 
-struct warn {
-    const char * msg;
-    const char * param1;
-    uint64_t value1;
-    const char * param2;
-    uint64_t value2;
-    const char * file_name;
-    int line_num;
-    int num;
-};
-
 struct ai
 {
     void * data;
     const char * error;
     struct history history;
+    struct warns warns;
 
     int (*reset)(
         struct ai * restrict const ai,
@@ -343,6 +377,8 @@ struct ai
         struct ai * restrict const ai,
         int index);
 };
+
+const struct warn * ai_get_warn(struct ai * restrict const ai, int index);
 
 int init_random_ai(
     struct ai * restrict const ai,

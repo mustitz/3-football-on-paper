@@ -13,25 +13,6 @@ static const uint32_t     def_cache = CACHE_AUTO_CALCULATE;
 static const uint32_t def_max_depth =                  128;
 static const  float           def_C =                  1.4;
 
-#define WARN(me, name, pname1, pvalue1, pname2, pvalue2) \
-    warn(me, WARN_##name, pname1, (uint64_t)pvalue1, pname2, (uint64_t)pvalue2, __FILENAME__, __LINE__)
-
-enum warn_nums {
-    WARN_WRONG_WARN = 1,
-    WARN_STEPS_ARE_CYCLES,
-    WARN_ACTIVE_OOR,
-    WARN_INCONSISTERN_STEPS_PRIORITY,
-    QWARNS
-};
-
-static const char * warn_messages[QWARNS] = {
-    [WARN_WRONG_WARN] = "Wrong warning",
-    [WARN_STEPS_ARE_CYCLES] = "All steps are cycles!",
-    [WARN_ACTIVE_OOR] = "state->active value is out of range",
-    [WARN_INCONSISTERN_STEPS_PRIORITY] = "Inconsistent values for steps/priories",
-    [0] = "???"
-};
-
 enum cycle_result {
     NO_CYCLE = 0,
     CYCLE_FOUND = 1
@@ -122,8 +103,7 @@ struct mcts_ai
     struct cycle_guard cycle_guard;
     struct cycle_guard backup_cycle_guard;
 
-    struct warn warns[QWARNS];
-    int qwarns;
+    struct warns * warns;
 };
 
 struct hist_item
@@ -157,64 +137,6 @@ static void * move_ptr(void * ptr, size_t offset)
 {
     char * restrict const base = ptr;
     return base + offset;
-}
-
-static void warn(
-    struct mcts_ai * restrict const me,
-    int num,
-    const char * param1,
-    uint64_t value1,
-    const char * param2,
-    uint64_t value2,
-    const char * file_name,
-    int line_num)
-{
-    if (num <= 0 || num >= QWARNS) {
-        WARN(me, WRONG_WARN, "num", num, NULL, 0);
-        return;
-    }
-
-    for (int i=0; i<me->qwarns; ++i) {
-        if (me->warns[i].num == num) {
-            /* Already have it */
-            return;
-        }
-    }
-
-    int i = me->qwarns;
-    if (i >= QWARNS) {
-        /* Overflow */
-        return;
-    }
-
-    struct warn * restrict const warn = me->warns + i;
-    warn->num = num;
-    warn->msg = warn_messages[num];
-    warn->param1 = param1;
-    warn->param2 = param2;
-    warn->value1 = value1;
-    warn->value2 = value2;
-    warn->file_name = file_name;
-    warn->line_num = line_num;
-    ++me->qwarns;
-}
-
-static void reset_warns(
-    struct mcts_ai * restrict const me)
-{
-    me->qwarns = 0;
-}
-
-static const struct warn * mcts_ai_get_warn(
-    struct ai * restrict const ai,
-    int index)
-{
-    struct mcts_ai * restrict const me = ai->data;
-    if (index < 0 || index >= me->qwarns) {
-        return NULL;
-    }
-
-    return me->warns + index;
 }
 
 static const uint32_t MIN_CACHE_SZ = (16 * sizeof(struct node));
@@ -498,7 +420,7 @@ static steps_t forbid_cycles(
         return steps ^ cycles;
     }
 
-    WARN(me, STEPS_ARE_CYCLES, "steps", steps, "cycles", cycles);
+    WARN(me->warns, STEPS_ARE_CYCLES, "steps", steps, "cycles", cycles);
 
     static const steps_t player1_priority[QSTEPS] = {
         1 << NORTH,
@@ -531,7 +453,7 @@ static steps_t forbid_cycles(
             priority = player2_priority;
             break;
         default:
-            WARN(me, ACTIVE_OOR, "active", state->active, NULL, 0);
+            WARN(me->warns, ACTIVE_OOR, "active", state->active, NULL, 0);
             return steps;
     }
 
@@ -542,7 +464,7 @@ static steps_t forbid_cycles(
         }
     }
 
-    WARN(me, INCONSISTERN_STEPS_PRIORITY, "steps", steps, "active", state->active);
+    WARN(me->warns, INCONSISTERN_STEPS_PRIORITY, "steps", steps, "active", state->active);
     return steps;
 }
 
@@ -759,7 +681,11 @@ int init_dev_0003_ai(
         return errno;
     }
 
+    struct mcts_ai * restrict const me = ai->data;
+    me->warns = &ai->warns;
+
     init_history(&ai->history);
+    warns_init(&ai->warns);
 
     ai->reset = mcts_ai_reset;
     ai->do_step = mcts_ai_do_step;
@@ -770,7 +696,7 @@ int init_dev_0003_ai(
     ai->get_params = mcts_ai_get_params;
     ai->set_param = mcts_ai_set_param;
     ai->get_state = mcts_ai_get_state;
-    ai->get_warn = mcts_ai_get_warn;
+    ai->get_warn = ai_get_warn;
     ai->free = free_mcts_ai;
 
     return 0;
@@ -1046,7 +972,7 @@ static enum step ai_go(
     struct mcts_ai * restrict const me,
     struct ai_explanation * restrict const explanation)
 {
-    reset_warns(me);
+    warns_reset(me->warns);
 
     if (explanation) {
         explanation->qstats = 0;
