@@ -3,6 +3,7 @@ ${CFLAGS=""}
 
 AM_INIT_AUTOMAKE(dist-bzip2 subdir-objects)
 AC_CONFIG_MACRO_DIR([m4])
+AC_CANONICAL_HOST
 
 
 
@@ -20,6 +21,7 @@ AM_CONDITIONAL(DEBUG_MODE, test x"$debug" = x"true")
 
 
 MU_VALGRIND
+MU_LEAKS
 
 
 
