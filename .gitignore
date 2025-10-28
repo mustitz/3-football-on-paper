@@ -5,6 +5,7 @@
 *.o
 *.trs
 *.log
+*~
 
 log
 .deps
@@ -35,3 +36,5 @@ Makefile.in
 
 /validation/insider
 /validation/validation.sh
+
+__pycache__/
