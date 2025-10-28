@@ -13,69 +13,6 @@ static const uint32_t     def_cache = CACHE_AUTO_CALCULATE;
 static const uint32_t def_max_depth =                  128;
 static const  float           def_C =                  1.4;
 
-enum cycle_result {
-    NO_CYCLE = 0,
-    CYCLE_FOUND = 1
-};
-
-struct kick {
-    int from, to, override;
-};
-
-struct cycle_guard {
-    int qkicks;
-    int capacity;
-    struct kick * kicks;
-};
-
-static inline void cycle_guard_reset(struct cycle_guard * restrict me)
-{
-    me->qkicks = 0;
-}
-
-static enum cycle_result cycle_guard_push(struct cycle_guard * restrict me, int from, int to)
-{
-    if (me->qkicks >= me->capacity) {
-        return CYCLE_FOUND;
-    }
-
-    int override = 0;
-    int i = me->qkicks;
-    while (i --> 0) {
-        int count = 0
-            + (from == me->kicks[i].from) + (from == me->kicks[i].to)
-            + (to == me->kicks[i].from) + (to == me->kicks[i].to)
-            ;
-        if (count >= 2) {
-            override = 1;
-            break;
-        }
-    }
-
-    if (override && me->qkicks >= 2) {
-        i = me->qkicks;
-        while (i --> 0) {
-            if (me->kicks[i].to == to) {
-                return CYCLE_FOUND;
-            }
-            if (!me->kicks[i].override) {
-                break;
-            }
-        }
-    }
-
-    me->kicks[me->qkicks].from = from;
-    me->kicks[me->qkicks].to = to;
-    me->kicks[me->qkicks].override = override;
-    me->qkicks++;
-
-    return NO_CYCLE;
-}
-
-static void cycle_guard_pop(struct cycle_guard * restrict me) {
-    me->qkicks--;
-}
-
 struct mcts_ai
 {
     struct state * state;
