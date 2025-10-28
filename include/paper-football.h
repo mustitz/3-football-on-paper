@@ -352,4 +352,8 @@ int init_mcts_ai(
     struct ai * restrict const ai,
     const struct geometry * const geometry);
 
+int init_dev_0003_ai(
+    struct ai * restrict const ai,
+    const struct geometry * const geometry);
+
 #endif
