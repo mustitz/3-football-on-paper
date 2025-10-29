@@ -18,3 +18,4 @@ int test_random_ai_unstep(void);
 int test_mcts_ai_unstep(void);
 int test_cycle_detection(void);
 int test_ai_no_cycles(void);
+int test_preparation(void);
