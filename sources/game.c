@@ -162,9 +162,9 @@ struct geometry * create_std_geometry(
 
     const uint32_t qpoints = (uint32_t)(width) * (uint32_t)(height);
     const size_t board_map_sz = qpoints * QSTEPS * sizeof(uint32_t);
-    const size_t sizes[3] = { sizeof(struct geometry), board_map_sz, board_map_sz };
-    void * ptrs[3];
-    void * data = multialloc(3, sizes, ptrs, 256);
+    const size_t sizes[4] = { sizeof(struct geometry), board_map_sz, board_map_sz, (1 << QSTEPS) * QSTEPS };
+    void * ptrs[4];
+    void * data = multialloc(4, sizes, ptrs, 256);
 
     if (data == NULL) {
         return NULL;
@@ -212,10 +212,19 @@ struct geometry * create_std_geometry(
         }
     }
 
+    uint8_t * restrict bit_table_ptr = ptrs[3];
+    for (uint32_t mask = 0; mask < 256; ++mask) {
+        steps_t steps = mask;
+        for (int n = 0; n < QSTEPS; ++n) {
+            *bit_table_ptr++ = steps == 0 ? INVALID_STEP : extract_step(&steps);
+        }
+    }
+
     me->qpoints = qpoints;
     me->free_kick_len = free_kick_len;
     me->connections = ptrs[1];
     me->free_kicks = ptrs[2];
+    me->bit_index_table = ptrs[3];
     return me;
 }
 
