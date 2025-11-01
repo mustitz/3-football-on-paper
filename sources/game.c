@@ -142,6 +142,13 @@ static int init_magic_step3(void)
     return 0;
 }
 
+static inline int distance_squared(const int x1, const int y1, const int x2, const int y2)
+{
+    const int dx = x1 - x2;
+    const int dy = y1 - y2;
+    return dx * dx + dy * dy;
+}
+
 struct geometry * create_std_geometry(
     const int width,
     const int height,
@@ -162,9 +169,17 @@ struct geometry * create_std_geometry(
 
     const uint32_t qpoints = (uint32_t)(width) * (uint32_t)(height);
     const size_t board_map_sz = qpoints * QSTEPS * sizeof(uint32_t);
-    const size_t sizes[4] = { sizeof(struct geometry), board_map_sz, board_map_sz, (1 << QSTEPS) * QSTEPS };
-    void * ptrs[4];
-    void * data = multialloc(4, sizes, ptrs, 256);
+    const size_t straight_sz = qpoints * sizeof(enum step);
+    const size_t dist_sz = qpoints * sizeof(uint32_t);
+    const size_t sizes[8] = {
+        sizeof(struct geometry),
+        board_map_sz, board_map_sz,
+        (1 << QSTEPS) * QSTEPS,
+        straight_sz, straight_sz,
+        dist_sz, dist_sz
+    };
+    void * ptrs[8];
+    void * data = multialloc(8, sizes, ptrs, 256);
 
     if (data == NULL) {
         return NULL;
@@ -220,11 +235,133 @@ struct geometry * create_std_geometry(
         }
     }
 
+    const int goal1_x = width / 2;
+    const int goal1_y = height;
+    const int goal2_x = width / 2;
+    const int goal2_y = -1;
+
+    enum step * restrict straight1 = ptrs[4];
+    enum step * restrict straight2 = ptrs[5];
+    const int32_t * const free_kicks = ptrs[2];
+
+    const int max_dist = width * width + height * height;
+
+    for (int32_t offset = 0; offset < width*height; ++offset) {
+        /* Find best penalty direction for player 1 (to goal 1) */
+        enum step best_step1 = INVALID_STEP;
+        int best_dist1 = max_dist;
+        for (enum step step = 0; step < QSTEPS; ++step) {
+            const int32_t target = free_kicks[offset * QSTEPS + step];
+            if (target == GOAL_1) {
+                best_step1 = step;
+                break;
+            }
+
+            if (target < 0) {
+                continue;
+            }
+
+            const int target_x = target % width;
+            const int target_y = target / width;
+            const int dist = distance_squared(target_x, target_y, goal1_x, goal1_y);
+            if (dist < best_dist1) {
+                best_dist1 = dist;
+                best_step1 = step;
+            }
+        }
+
+        straight1[offset] = best_step1;
+
+        /* Find best penalty direction for player 2 (to goal 2) */
+        enum step best_step2 = INVALID_STEP;
+        int best_dist2 = max_dist;
+        for (enum step step = 0; step < QSTEPS; ++step) {
+            const int32_t target = free_kicks[offset * QSTEPS + step];
+            if (target == GOAL_2) {
+                best_step2 = step;
+                break;
+            }
+
+            if (target < 0) {
+                continue;
+            }
+
+            const int target_x = target % width;
+            const int target_y = target / width;
+            const int dist = distance_squared(target_x, target_y, goal2_x, goal2_y);
+            if (dist < best_dist2) {
+                best_dist2 = dist;
+                best_step2 = step;
+            }
+        }
+
+        straight2[offset] = best_step2;
+    }
+
+    uint32_t * restrict dist1 = ptrs[6];
+    uint32_t * restrict dist2 = ptrs[7];
+
+    /* Initialize all distances to 0xFFFFFFFF (unprocessed) */
+    memset(dist1, 0xFF, qpoints * sizeof(uint32_t));
+    memset(dist2, 0xFF, qpoints * sizeof(uint32_t));
+
+    /* BFS for goal1 */
+    uint32_t processed = 0;
+    for (uint32_t depth = 1; processed < qpoints; ++depth) {
+        for (int32_t offset = 0; offset < qpoints; ++offset) {
+            if (dist1[offset] != 0xFFFFFFFF) continue; /* Already processed */
+            for (enum step step = 0; step < QSTEPS; ++step) {
+                const int32_t target = connections[offset * QSTEPS + step];
+                if (target == GOAL_1) {
+                    dist1[offset] = depth;
+                    ++processed;
+                    break;
+                }
+                if (target < 0) {
+                    continue;
+                }
+                if (dist1[target] < depth) {
+                    dist1[offset] = depth;
+                    ++processed;
+                    break;
+                }
+            }
+        }
+    }
+
+    /* BFS for goal2 */
+    processed = 0;
+    for (uint32_t depth = 1; processed < qpoints; ++depth) {
+        for (int32_t offset = 0; offset < qpoints; ++offset) {
+            if (dist2[offset] != 0xFFFFFFFF) continue; /* Already processed */
+            for (enum step step = 0; step < QSTEPS; ++step) {
+                const int32_t target = connections[offset * QSTEPS + step];
+                if (target == GOAL_2) {
+                    dist2[offset] = depth;
+                    ++processed;
+                    break;
+                }
+                if (target < 0) {
+                    continue;
+                }
+                if (dist2[target] < depth) {
+                    dist2[offset] = depth;
+                    ++processed;
+                    break;
+                }
+            }
+        }
+    }
+
     me->qpoints = qpoints;
     me->free_kick_len = free_kick_len;
     me->connections = ptrs[1];
     me->free_kicks = ptrs[2];
     me->bit_index_table = ptrs[3];
+    me->straight_free_kick1 = ptrs[4];
+    me->straight_free_kick2 = ptrs[5];
+    me->dist_goal1 = ptrs[6];
+    me->dist_goal2 = ptrs[7];
     return me;
 }
 

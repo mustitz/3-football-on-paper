@@ -327,6 +327,10 @@ struct geometry
     const int32_t * connections;
     const int32_t * free_kicks;
     const uint8_t * bit_index_table;
+    const enum step * straight_free_kick1;
+    const enum step * straight_free_kick2;
+    const uint32_t * dist_goal1;
+    const uint32_t * dist_goal2;
 };
 
 static inline enum step get_nth_bit(const struct geometry * const geometry, uint8_t mask, int n)
