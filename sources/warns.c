@@ -5,6 +5,10 @@ static const char * messages[QWARNS] = {
     [WARN_STEPS_ARE_CYCLES] = "All steps are cycles!",
     [WARN_ACTIVE_OOR] = "state->active value is out of range",
     [WARN_INCONSISTERN_STEPS_PRIORITY] = "Inconsistent values for steps/priories",
+    [WARN_BSF_ALLOC_FAILED] = "BSF node allocation failed",
+    [WARN_BSF_SERIES_OVERFLOW] = "BSF series capacity exceeded",
+    [WARN_BSF_NODE_PARENT_NULL] = "BSF node parent is NULL before reaching root",
+    [WARN_BSF_NODE_NOT_FROM_ROOT] = "BSF serie path does not start from root",
     [0] = "???"
 };
 

@@ -119,6 +119,8 @@ enum step {
     QSTEPS
 };
 
+#define QANSWERS_BITS 8
+
 #define INVALID_STEP QSTEPS
 #define BACK(s) ((enum step)(((s)+4) & 0x07))
 
@@ -153,6 +155,10 @@ enum warn_nums {
     WARN_STEPS_ARE_CYCLES,
     WARN_ACTIVE_OOR,
     WARN_INCONSISTERN_STEPS_PRIORITY,
+    WARN_BSF_ALLOC_FAILED,
+    WARN_BSF_SERIES_OVERFLOW,
+    WARN_BSF_NODE_PARENT_NULL,
+    WARN_BSF_NODE_NOT_FROM_ROOT,
     QWARNS
 };
 
@@ -363,6 +369,59 @@ int state_rollback(
     struct state * restrict const me,
     const struct step_change * const changes,
     unsigned int qchanges);
+
+
+
+struct bsf_node;
+
+enum add_serie_status
+{
+    ADDED_OK,
+    ADDED_LAST,
+    ADDED_FAILURE
+};
+
+struct bsf_serie
+{
+    int ball;
+    int qsteps;
+    enum step * steps;
+};
+
+struct bsf_free_kicks
+{
+    int qseries;
+    int capacity;
+    int max_depth;
+    int max_alts;
+    int max_visits;
+    int stats_sz;
+    struct dlist free;
+    struct dlist waiting;
+    struct dlist used;
+    struct bsf_node * root;
+    struct bsf_serie * series;
+    struct bsf_serie * win;
+    struct bsf_serie * loose;
+    int * alts;
+    int * visits;
+    struct state * states;
+};
+
+struct bsf_free_kicks * create_bsf_free_kicks(
+    const struct geometry * const geometry,
+    int capacity,
+    int max_depth,
+    int max_alts,
+    int max_visits);
+
+void destroy_bsf_free_kicks(struct bsf_free_kicks * restrict const me);
+
+void bsf_gen(
+    struct warns * const warns,
+    struct bsf_free_kicks * const me,
+    const struct state * const state,
+    const struct cycle_guard * const guard);
 
 
 

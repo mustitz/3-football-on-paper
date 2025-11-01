@@ -67,6 +67,11 @@ const struct test_item tests[] = {
     { "cycle-detection", &test_cycle_detection},
     { "ai-no-cycles", &test_ai_no_cycles},
     { "preparation", &test_preparation},
+    { "gen-complete-free-kicks", &test_gen_complete_free_kicks},
+    { "gen-complete-free-kicks-win", &test_gen_complete_free_kicks_win},
+    { "long-free-kick-to-win", &test_long_free_kick_to_win},
+    { "long-free-kick-to-loose", &test_long_free_kick_to_loose},
+    { "gen-complete-free-kicks-long", &test_gen_complete_free_kicks_long},
     { NULL, NULL }
 };
 
