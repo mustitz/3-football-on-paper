@@ -20,6 +20,21 @@ AM_CONDITIONAL(DEBUG_MODE, test x"$debug" = x"true")
 
 
 
+AC_ARG_ENABLE([logs],
+    AS_HELP_STRING([--enable-logs], [enable MCTS logging, default: no]),
+    [case "${enableval}" in
+        yes) logs=true ;;
+        no)  logs=false ;;
+        *)   AC_MSG_ERROR([bad value ${enableval} for --enable-logs]) ;;
+    esac],
+[mcts_logs=false])
+
+AS_IF([test x"$logs" = x"true"],
+    [AC_DEFINE([ENABLE_LOGS], [1], [Enable logging])],
+    [AC_DEFINE([ENABLE_LOGS], [0], [Enable logging])])
+
+
+
 MU_VALGRIND
 MU_LEAKS
 

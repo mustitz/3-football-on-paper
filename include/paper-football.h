@@ -1,6 +1,8 @@
 #ifndef YOO__PAPER_FOOTBALL__H__
 #define YOO__PAPER_FOOTBALL__H__
 
+#include "config.h"
+
 #include <errno.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -104,6 +106,26 @@ static inline void dlist_move_all(
 
 
 void debug_trap(void);
+
+#if ENABLE_LOGS
+#define LOG_FUNC
+#define LOG_BODY ;
+void * get_flog(void);
+#else
+#define LOG_FUNC static inline
+#define LOG_BODY {}
+static inline void * get_flog(void) { return NULL; }
+#endif
+
+LOG_FUNC void log_line(
+    const char * fmt,
+    ...)
+LOG_BODY
+
+LOG_FUNC void log_text(
+    const char * fmt,
+    ...)
+LOG_BODY
 
 
 
