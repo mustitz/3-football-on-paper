@@ -470,7 +470,7 @@ int history_push(struct history * restrict const me, const struct state * const 
 
 
 
-struct step_stat
+struct choice_stat
 {
     enum step step;
     int32_t qgames;
@@ -488,7 +488,7 @@ struct cache_explanation
 struct ai_explanation
 {
     size_t qstats;
-    const struct step_stat * stats;
+    const struct choice_stat * stats;
     double time;
     double score;
     struct cache_explanation cache;

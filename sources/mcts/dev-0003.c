@@ -19,7 +19,7 @@ struct mcts_ai
     struct state * backup;
     char * error_buf;
     struct ai_param params[QPARAMS+1];
-    struct step_stat stats[QSTEPS];
+    struct choice_stat stats[QSTEPS];
 
     uint32_t cache;
     uint32_t qthink;
@@ -872,8 +872,8 @@ static int compare_stats(
     const void * const ptr_a,
     const void * const ptr_b)
 {
-    const struct step_stat * a = ptr_a;
-    const struct step_stat * b = ptr_b;
+    const struct choice_stat * a = ptr_a;
+    const struct choice_stat * b = ptr_b;
     if (a->qgames > b->qgames) return -1;
     if (a->qgames < b->qgames) return +1;
     return 0;
@@ -1012,7 +1012,7 @@ static enum step ai_go(
         }
 
         if (qstats > 2) {
-            qsort(me->stats + 1, qstats - 1, sizeof(struct step_stat), compare_stats);
+            qsort(me->stats + 1, qstats - 1, sizeof(struct choice_stat), compare_stats);
         }
 
         // Fill cache statistics in explanation
