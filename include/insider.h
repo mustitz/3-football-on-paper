@@ -60,6 +60,12 @@ void must_set_param(
 
 
 
+extern struct game_protocol protocol_empty;
+extern struct game_protocol protocol_step12_overflow_bug_example;
+extern struct game_protocol protocol_002255;
+
+
+
 void test_fail(const char * const fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
 

@@ -1203,22 +1203,14 @@ int test_mcts_history(void)
 
 int test_ucb_formula(void)
 {
-    struct geometry * restrict const geometry = create_std_geometry(BW, BH, GW, FK);
-    if (geometry == NULL) {
-        test_fail("create_std_geometry(%d, %d, %d) fails, return value is NULL, errno is %d.",
-            BW, BH, GW, errno);
-    }
-
-    struct ai storage;
-    struct ai * restrict const ai = &storage;
-    init_mcts_ai(ai, geometry);
     const uint32_t cache = 1024 * sizeof(struct node);
-    const int status = ai->set_param(ai, "cache", &cache);
-    if (status != 0) {
-        test_fail("ai->set_param fails with code %d, %s.", status, ai->error);
-    }
 
-    struct mcts_ai * restrict const me = ai->data;
+    must_init_ctx(&protocol_empty);
+    struct ai * restrict const ai = ctx->ai;
+    struct mcts_ai * restrict const me = ctx->mcts;
+
+    must_set_param(ai, "cache", &cache);
+
     reset_cache(me);
 
     struct node node;
@@ -1279,88 +1271,82 @@ int test_ucb_formula(void)
         test_fail("Some directions are visitied twice, visited mask is 0x%02X.", visited);
     }
 
-    ai->free(ai);
-    destroy_geometry(geometry);
+    free_ctx();
     return 0;
 }
 
 #define QSIMULATIONS  1000
 
-int test_simulation(void)
+static int run_simulation(const struct game_protocol * const protocol, int qsimulations)
 {
-    struct geometry * restrict const geometry = create_std_geometry(BW, BH, GW, FK);
-    if (geometry == NULL) {
-        test_fail("create_std_geometry(%d, %d, %d) fails, return value is NULL, errno is %d.",
-            BW, BH, GW, errno);
+    const uint32_t cache = 128 * qsimulations * sizeof(struct node);
+
+    const enum step * const steps = protocol->steps;
+    const int qsteps = protocol->qsteps;
+
+    must_init_ctx(protocol);
+    struct ai * restrict const ai = ctx->ai;
+    struct mcts_ai * restrict const me = ctx->mcts;
+
+    must_set_param(ai, "cache", &cache);
+
+    int status = ai->do_steps(ai, qsteps, steps);
+    if (status != 0) {
+        test_fail("Failed to apply moves, status %d, error: %s", status, ai->error);
     }
 
-    struct ai storage;
-    struct ai * restrict const ai = &storage;
-    init_mcts_ai(ai, geometry);
-    const uint32_t cache = 2 * QSIMULATIONS * sizeof(struct node);
-    ai->set_param(ai, "cache", &cache);
-
-    struct mcts_ai * restrict const me = ai->data;
     reset_cache(me);
 
     struct node * restrict const zero = alloc_node(me);
     if (zero == NULL) {
         test_fail("alloc zero node failed.");
     }
+
     zero->score = 2;
     zero->qgames = 1;
 
     struct node * restrict const root = alloc_node(me);
-    if (zero == NULL) {
+    if (root == NULL) {
         test_fail("alloc root node failed.");
     }
 
     root->qgames = 1;
-    for (int i=0; i<QSIMULATIONS; ++i) {
+    for (int i=0; i<qsimulations; ++i) {
         simulate(me, root);
         ++root->qgames;
     }
 
-    if (root->qgames != QSIMULATIONS + 1) {
-        test_fail("root->qgames = %u, but %u expected.", root->qgames, QSIMULATIONS);
+    if (root->qgames != qsimulations + 1) {
+        test_fail("root->qgames = %u, but %u expected.", root->qgames, qsimulations);
     }
 
-    ai->free(ai);
-    destroy_geometry(geometry);
+    free_ctx();
     return 0;
+}
+
+int test_simulation(void)
+{
+    return run_simulation(&protocol_empty, 1000);
 }
 
 int test_mcts_ai_unstep(void)
 {
-    int status;
+    const uint32_t qthink = 32 * 1024;
 
-    struct geometry * restrict const geometry = create_std_geometry(BW, BH, GW, FK);
-    if (geometry == NULL) {
-        test_fail("create_std_geometry(%d, %d, %d) fails, return value is NULL, errno is %d.",
-            BW, BH, GW, errno);
-    }
+    must_init_ctx(&protocol_empty);
+    struct ai * restrict const ai = ctx->ai;
+    const struct geometry * const geometry = ctx->geometry;
 
-    struct ai storage;
-    struct ai * restrict const ai = &storage;
-
-    init_mcts_ai(ai, geometry);
-
-    const uint32_t qthink = 2 * 1024;
-    status = ai->set_param(ai, "qthink", &qthink);
-    if (status != 0) {
-        test_fail("ai->set_param fails with code %d, %s.", status, ai->error);
-    }
-
-    const uint32_t cache = 2 * qthink;
-    status = ai->set_param(ai, "cache", &cache);
-    if (status != 0) {
-        test_fail("ai->set_param fails with code %d, %s.", status, ai->error);
-    }
+    must_set_param(ai, "qthink", &qthink);
 
     unsigned int qsteps = 0;
     const struct state * const state = ai->get_state(ai);
     while (state_status(state) == IN_PROGRESS) {
         const enum step step = ai->go(ai, NULL);
+
+        if (step < 0 || step >= INVALID_STEP) {
+            test_fail("ai->go returns invalid step %d\n", step);
+        }
 
         const struct warn * warn = ai->get_warn(ai, 0);
         if (warn != NULL) {
@@ -1368,11 +1354,15 @@ int test_mcts_ai_unstep(void)
                 qsteps, warn->msg, warn->file_name, warn->line_num);
         }
 
-        ai->do_step(ai, step);
+        const int status = ai->do_step(ai, step);
+        if (status != 0) {
+            test_fail("ai->go step %s (%d) is not accepted by ai->do_step, qsteps = %d\n", step_names[step], step, qsteps);
+        }
+
         ++qsteps;
     }
 
-    status = ai->undo_steps(ai, qsteps);
+    const int status = ai->undo_steps(ai, qsteps);
     if (status != 0) {
         test_fail("undo steps failed, status %d, error: %s", status, ai->error);
     }
@@ -1391,60 +1381,23 @@ int test_mcts_ai_unstep(void)
         test_fail("All undo: lines mismatch.");
     }
 
-    ai->free(ai);
     destroy_state(check_state);
-
-    destroy_geometry(geometry);
+    free_ctx();
     return 0;
 }
 
 int test_ai_no_cycles(void)
 {
-    struct geometry * restrict const geometry = create_std_geometry(21, 31, 6, 5);
-    if (geometry == NULL) {
-        test_fail("create_std_geometry(21, 31, 6, 5) fails, return value is NULL, errno is %d.", errno);
-    }
+    const struct game_protocol * const protocol = &protocol_002255;
+    must_init_ctx(protocol);
+    struct ai * restrict const ai = ctx->ai;
+    const enum step * const steps = protocol->steps;
+    const int qsteps = protocol->qsteps;
 
-    struct ai storage;
-    struct ai * restrict const ai = &storage;
-    init_mcts_ai(ai, geometry);
-
-    // Reproduce moves from game 002255 up to the cyclical situation
-    enum step moves[] = {
-        // 1 N NW NE
-        NORTH, NORTH_WEST, NORTH_EAST,
-        // 2 SE S NW S
-        SOUTH_EAST, SOUTH, NORTH_WEST, SOUTH,
-        // 1 NW NW E
-        NORTH_WEST, NORTH_WEST, EAST,
-        // 2 NW NE S S
-        NORTH_WEST, NORTH_EAST, SOUTH, SOUTH,
-        // 1 NW NW NE
-        NORTH_WEST, NORTH_WEST, NORTH_EAST,
-        // 2 W SW SE
-        WEST, SOUTH_WEST, SOUTH_EAST,
-        // 1 W NW NE
-        WEST, NORTH_WEST, NORTH_EAST,
-        // 2 W SW SE
-        WEST, SOUTH_WEST, SOUTH_EAST,
-        // 1 W NW NE
-        WEST, NORTH_WEST, NORTH_EAST,
-        // 2 NW W SE
-        NORTH_WEST, WEST, SOUTH_EAST,
-        // 1 W W NW
-        WEST, WEST, NORTH_WEST,
-        // 2 NE E SW S
-        NORTH_EAST, EAST, SOUTH_WEST, SOUTH,
-    };
-
-    // Apply moves up to the cyclical situation
-    int status = ai->do_steps(ai, ARRAY_LEN(moves), moves);
+    int status = ai->do_steps(ai, qsteps, steps);
     if (status != 0) {
         test_fail("Failed to apply moves, status %d, error: %s", status, ai->error);
     }
-
-    // Now engine moved:
-    // 1 NE NE NW E W E W E W E W E W E W E W E W E NE
 
     status = ai->do_step(ai, NORTH_EAST);
     if (status != 0) {
@@ -1491,8 +1444,7 @@ int test_ai_no_cycles(void)
         }
     }
 
-    ai->free(ai);
-    destroy_geometry(geometry);
+    free_ctx();
     return 0;
 }
 
