@@ -8,6 +8,7 @@
 #include <string.h>
 
 const char * test_name = "";
+int opt_verbose = 0;
 
 void fail(void)
 {
@@ -23,6 +24,15 @@ void test_fail(const char * const fmt, ...)
     vfprintf(stderr, fmt, args);
     va_end(args);
     fail();
+}
+
+void info(const char * const fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    printf("\n");
+    va_end(args);
 }
 
 
@@ -127,6 +137,10 @@ int main(const int argc, const char * const argv[])
     }
 
     for (size_t i=1; i<argc; ++i) {
+        if (strcmp(argv[i], "-v") == 0) {
+            opt_verbose = 1;
+            continue;
+        }
         run_test(argv[i]);
     }
 

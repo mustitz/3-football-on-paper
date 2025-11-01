@@ -72,6 +72,7 @@ extern struct game_protocol protocol_002255;
 
 
 void test_fail(const char * const fmt, ...) __attribute__ ((format (printf, 1, 2)));
+void info(const char * const fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
 
 

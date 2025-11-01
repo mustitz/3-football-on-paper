@@ -1347,15 +1347,19 @@ int test_mcts_ai_unstep(void)
 
         const struct warn * warn = ai->get_warn(ai, 0);
         if (warn != NULL) {
+            info("ai->go returns %s", step_names[step]);
             test_fail("Warning after ai->go() at step %u: %s (at %s:%d)",
                 qsteps, warn->msg, warn->file_name, warn->line_num);
         }
 
+        int old_active = state->active;
         const int status = ai->do_step(ai, step);
         if (status != 0) {
             test_fail("ai->go step %s (%d) is not accepted by ai->do_step, qsteps = %d\n", step_names[step], step, qsteps);
         }
 
+        int new_active = state->active;
+        info("do_step %s, active %d -> %d", step_names[step], old_active, new_active);
         ++qsteps;
     }
 
