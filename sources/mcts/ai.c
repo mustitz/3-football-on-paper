@@ -49,10 +49,20 @@ struct hist_item
     int active;
 };
 
+union node_opts
+{
+    struct {
+        unsigned step : 4;
+    };
+    uint32_t u32;
+};
+
 struct node
 {
     int32_t score;
     int32_t qgames;
+    union node_opts opts;
+    int32_t ball;
     int32_t children[QSTEPS];
 };
 
@@ -638,7 +648,9 @@ int init_mcts_ai(
 
 
 
-static struct node * alloc_node(struct mcts_ai * restrict const me)
+static struct node * alloc_node(
+    struct mcts_ai * restrict const me,
+    enum step step)
 {
     if (me->used_nodes >= me->total_nodes) {
         ++me->bad_node_alloc;
@@ -649,6 +661,9 @@ static struct node * alloc_node(struct mcts_ai * restrict const me)
     ++me->good_node_alloc;
     ++me->used_nodes;
     memset(result, 0, sizeof(struct node));
+
+    result->opts.step = step;
+    result->ball = NO_WAY;
     return result;
 }
 
@@ -824,8 +839,9 @@ static uint32_t simulate(
         ++qthink;
 
         uint32_t ichild = node->children[step];
-        if (ichild == 0) {
-            struct node * restrict const child = alloc_node(me);
+        const int is_leaf = ichild == 0;
+        if (is_leaf) {
+            struct node * restrict const child = alloc_node(me, step);
             if (child == NULL) {
                 return 0;
             }
@@ -837,10 +853,14 @@ static uint32_t simulate(
 
         add_history(me, node, state->active);
 
-        int old_ball = state->ball;
-        int old_active = state->active;
-        state_step(state, step);
+        const int old_ball = state->ball;
+        const int old_active = state->active;
+        const int new_ball = state_step(state, step);
         const int status = state_status(state);
+
+        if (is_leaf) {
+            node->ball = new_ball;
+        }
 
         if (status == WIN_1) {
             update_history(me, +1);
@@ -852,7 +872,8 @@ static uint32_t simulate(
             return qthink;
         }
 
-        if (ichild == 0) {
+        if (is_leaf) {
+            log_line("Func %s - Find leaf node, break to rollout", __func__);
             break;
         }
 
@@ -922,7 +943,7 @@ static enum step ai_go(
 
     reset_cache(me);
 
-    struct node * restrict const zero = alloc_node(me);
+    struct node * restrict const zero = alloc_node(me, INVALID_STEP);
     if (zero == NULL) {
         snprintf(me->error_buf, ERROR_BUF_SZ, "alloc zero node failed.");
         return INVALID_STEP;
@@ -930,13 +951,14 @@ static enum step ai_go(
     zero->score = 2;
     zero->qgames = 1;
 
-    struct node * restrict const root = alloc_node(me);
+    struct node * restrict const root = alloc_node(me, INVALID_STEP);
     if (root == NULL) {
         snprintf(me->error_buf, ERROR_BUF_SZ, "alloc root node failed.");
         return INVALID_STEP;
     }
 
     root->qgames = 1;
+    root->ball = state->ball;
     uint32_t qthink = 0;
     for (;;) {
         const uint32_t delta_think = simulate(me, root);
@@ -1041,7 +1063,7 @@ static enum step ai_go(
 static struct node * must_alloc_node(
     struct mcts_ai * restrict const me)
 {
-    struct node * result = alloc_node(me);
+    struct node * result = alloc_node(me, INVALID_STEP);
     if (result == NULL) {
         test_fail("alloc_node failed.");
     }
@@ -1123,7 +1145,7 @@ int test_node_cache(void)
     for (int j=0; j<3; ++j) {
         reset_cache(me);
         for (unsigned int i=0; i<ALLOCATED_NODES; ++i) {
-            struct node * restrict const node = alloc_node(me);
+            struct node * restrict const node = alloc_node(me, 0);
             if (node == NULL) {
                 test_fail("%d alloc node fails, NULL is returned.", i);
             }
@@ -1138,7 +1160,7 @@ int test_node_cache(void)
         }
 
         for (unsigned int i=0; i<ALLOCATED_NODES/2; ++i) {
-            struct node * restrict const node = alloc_node(me);
+            struct node * restrict const node = alloc_node(me, 0);
             if (node != NULL) {
                 test_fail("%d alloc, failture expected, but node is allocated.", i);
             }
@@ -1184,7 +1206,7 @@ int test_mcts_history(void)
     const struct node * nodes[HISTORY_QITEMS];
 
     for (int i=0; i<HISTORY_QITEMS; ++i) {
-        struct node * restrict const node = alloc_node(me);
+        struct node * restrict const node = must_alloc_node(me);
         nodes[i] = node;
 
         const int active = (i%2) + 1;
