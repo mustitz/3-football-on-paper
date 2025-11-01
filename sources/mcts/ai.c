@@ -1038,6 +1038,17 @@ static enum step ai_go(
 
 #define QROLLOUTS   1024
 
+static struct node * must_alloc_node(
+    struct mcts_ai * restrict const me)
+{
+    struct node * result = alloc_node(me);
+    if (result == NULL) {
+        test_fail("alloc_node failed.");
+    }
+
+    return result;
+}
+
 int test_rollout(void)
 {
     struct geometry * restrict const geometry = create_std_geometry(BW, BH, GW, FK);
@@ -1241,17 +1252,11 @@ int test_ucb_formula(void)
         test_fail("Unexpected choice %d, expected EAST (%d).", choice, EAST);
     }
 
-    struct node * restrict const root = alloc_node(me);
-    if (root == NULL) {
-        test_fail("alloc_node failed with NULL as a return value for root node.");
-    }
+    struct node * restrict const root = must_alloc_node(me);
     root->qgames = 1;
 
     for (enum step step=0; step<QSTEPS; ++step) {
-        struct node * restrict const child = alloc_node(me);
-        if (child == NULL) {
-            test_fail("alloc_node failed with NULL as a return value for child node on step %d.", step);
-        }
+        struct node * restrict const child = must_alloc_node(me);
         child->qgames = 1;
         child->score = 2;
         root->children[step] = child - me->nodes;
@@ -1297,19 +1302,11 @@ static int run_simulation(const struct game_protocol * const protocol, int qsimu
 
     reset_cache(me);
 
-    struct node * restrict const zero = alloc_node(me);
-    if (zero == NULL) {
-        test_fail("alloc zero node failed.");
-    }
-
+    struct node * restrict const zero = must_alloc_node(me);
     zero->score = 2;
     zero->qgames = 1;
 
-    struct node * restrict const root = alloc_node(me);
-    if (root == NULL) {
-        test_fail("alloc root node failed.");
-    }
-
+    struct node * restrict const root = must_alloc_node(me);
     root->qgames = 1;
     for (int i=0; i<qsimulations; ++i) {
         simulate(me, root);
