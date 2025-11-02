@@ -15,21 +15,19 @@ DIMS = Dims(21, 31, 6, 5)
 if TYPE == CMATCH:
     c = FILLME
     qthink = FILLME
-    engine1, engine2 = FILLME, FILLME
+    engines = [FILLME, FILLME] # Just numbers is enought
+    name = FILLME
+    cycles = FILLME
 
-    test_engine = max(engine1, engine2)
-    name = f'c-{test_engine:04d}-{qthink}M'
-    engines = [ f'dev-{n:04}/{qthink}M-C{c:.1f}' for n in (engine1, engine2) ]
-    cycles = 100
+    test_engine = max(*engines)
     BAD_TYPE = False
 
 if TYPE == TPLAY:
     engine = FILLME
     cycles = FILLME
     qthink = FILLME
+    name = FILLME
 
-    name = f't-{engine:04d}-{qthink}M'
-    engine_type = f'dev-{engine:04d}'
     qthinks = [qthink]
     engines = []
     Cs = [0.7, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.6]
@@ -70,6 +68,16 @@ def create_tourney(name, qcycles, dims, *engines):
     print(f"Tournament '{name}' created with {r} matches")
     print(f"File: {fn}")
 
+def find_engine(n):
+    engines_dir = STATS_DIR / 'engines'
+    pattern = f'{n:04d}'
+
+    for dn in engines_dir.iterdir():
+        if dn.is_dir() and pattern in dn.name:
+            return dn.name
+
+    raise ValueError(f"Engine with number {n} (pattern {pattern}) not found in {engines_dir}")
+
 if __name__ == "__main__":
     if BAD_TYPE:
         raise Exception(f"Wrong TYPE value ({TYPE}), recheck settings")
@@ -78,6 +86,10 @@ if __name__ == "__main__":
         for qthink in qthinks:
             for C in Cs:
                 qthink_str = f"{qthink}M" if qthink != int(qthink) else f"{int(qthink)}M"
+                engine_type = find_engine(engine)
                 engines.append(f"{engine_type}/{qthink_str}-C{C}")
+    else:
+        engines = [ find_engine(n) + f"/{qthink}M-C{c:.1f}"  for n in engines ]
+
 
     create_tourney(name, cycles, DIMS, *engines)
