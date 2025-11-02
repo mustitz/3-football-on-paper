@@ -1069,7 +1069,8 @@ static enum step ai_go(
 #define GW    4
 #define FK    5
 
-#define QROLLOUTS   1024
+#define QROLLOUTS           1024
+#define MIN_QTHINK    (32 * 1024)
 
 static struct node * must_alloc_node(
     struct mcts_ai * restrict const me)
@@ -1480,6 +1481,65 @@ int test_ai_no_cycles(void)
 
     free_ctx();
     return 0;
+}
+
+static int run_ai_go(const struct game_protocol * const protocol, const int qmoves)
+{
+    const uint32_t qthink = MIN_QTHINK;
+
+    const enum step * const steps = protocol->steps;
+    const int qsteps = protocol->qsteps;
+
+    must_init_ctx(protocol);
+    struct ai * restrict const ai = ctx->ai;
+
+    must_set_param(ai, "qthink", &qthink);
+
+    int status = ai->do_steps(ai, qsteps, steps);
+    if (status != 0) {
+        test_fail("Failed to apply moves, status %d, error: %s", status, ai->error);
+    }
+
+    const struct state * const state = ai->get_state(ai);
+
+    for (int i = 0; i < qmoves; ++i) {
+        if (state_status(state) != IN_PROGRESS) {
+            break;
+        }
+
+        enum step step = ai->go(ai, NULL);
+        if (step < 0 || step >= INVALID_STEP) {
+            test_fail("ai->go returns invalid step %d at move %d", step, i);
+        }
+
+        printf("ai->go returns %s\n", step_names[step]);
+        const struct warn * warn = ai->get_warn(ai, 0);
+        if (warn != NULL) {
+            test_fail("Warning after ai->go() at move %d: %s (at %s:%d)",
+                i, warn->msg, warn->file_name, warn->line_num);
+        }
+
+        status = ai->do_step(ai, step);
+        if (status != 0) {
+            test_fail("ai->do_step(%s) failed at move %d, status %d, error: %s",
+                step_names[step], i, status, ai->error);
+        }
+
+        info("Move %d: %s", i, step_names[step]);
+    }
+
+    free_ctx();
+    return 0;
+}
+
+int debug_ai_go(void)
+{
+    return run_ai_go(&protocol_empty, 0);
+}
+
+int debug_simulate(void)
+{
+    return run_simulation(&protocol_empty, 0);
 }
 
 #endif
