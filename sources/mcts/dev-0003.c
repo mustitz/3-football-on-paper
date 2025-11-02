@@ -20,6 +20,7 @@ struct mcts_ai
     char * error_buf;
     struct ai_param params[QPARAMS+1];
     struct choice_stat stats[QSTEPS];
+    enum step explanation_steps[QSTEPS];
 
     uint32_t cache;
     uint32_t qthink;
@@ -997,7 +998,11 @@ static enum step ai_go(
             }
 
             const size_t i = step == result ? 0 : qstats;
-            me->stats[i].step = step;
+            enum step * restrict const steps = me->explanation_steps + i;
+            *steps = step;
+            me->stats[i].steps = steps;
+            me->stats[i].qsteps = 1;
+            me->stats[i].ball = NO_WAY;
             me->stats[i].qgames = child->qgames;
             me->stats[i].score = norm_score;
             qstats += !!i;

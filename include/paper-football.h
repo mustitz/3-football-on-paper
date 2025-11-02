@@ -142,6 +142,7 @@ enum step {
 };
 
 #define QANSWERS_BITS 8
+#define MAX_QANSWERS ((1 << QANSWERS_BITS) - 1)
 
 #define INVALID_STEP QSTEPS
 #define BACK(s) ((enum step)(((s)+4) & 0x07))
@@ -472,8 +473,10 @@ int history_push(struct history * restrict const me, const struct state * const 
 
 struct choice_stat
 {
-    enum step step;
+    const enum step * steps;
+    int32_t qsteps;
     int32_t qgames;
+    int32_t ball;
     double score;
 };
 

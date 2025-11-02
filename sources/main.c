@@ -421,11 +421,31 @@ static void explain_step(
         const struct choice_stat * ptr = explanation->stats;
         const struct choice_stat * const end = ptr + explanation->qstats;
         for (; ptr != end; ++ptr) {
-            printf("        %2s %5.1f%%", step_names[ptr->step], 100 * ptr->score);
+            const int qsteps = ptr->qsteps;
+            const enum step * const steps = ptr->steps;
+            printf("        %2s", step_names[steps[0]]);
+            for (int i=1; i<qsteps; ++i) {
+                printf("-%s", step_names[steps[i]]);
+            }
+
+            printf(" %5.1f%%", 100 * ptr->score);
             if (ptr->qgames > 0) {
-                printf(" %6d\n", ptr->qgames);
+                printf(" %6d", ptr->qgames);
             } else {
-                printf("    N/A\n");
+                printf("    N/A");
+            }
+
+            const int ball = ptr->ball;
+            if (ball >= 0) {
+                printf(" (ball %d)\n", ball);
+            } else if (ball == GOAL_1) {
+                printf(" (ball GOAL_1)\n");
+            } else if (ball == GOAL_2) {
+                printf(" (ball GOAL_2)\n");
+            } else if (ball == NO_WAY) {
+                printf(" (ball N/A)\n");
+            } else {
+                printf(" (ball ??? %d)\n", ball);
             }
         }
     }
@@ -435,7 +455,7 @@ static void ai_go(
     struct cmd_parser * restrict const me,
     const unsigned int flags)
 {
-    struct ai_explanation explanation;
+    struct ai_explanation explanation = {0};
 
     if (state_status(me->state) != IN_PROGRESS) {
         fprintf(stderr, "Game over, no moves possible.\n");
@@ -515,7 +535,7 @@ static void ai_go(
 
 static void ai_debug(struct cmd_parser * restrict const me)
 {
-    struct ai_explanation explanation;
+    struct ai_explanation explanation = {0};
 
     if (state_status(me->state) != IN_PROGRESS) {
         fprintf(stderr, "Game over, no moves possible.\n");

@@ -20,6 +20,7 @@ struct mcts_ai
     char * error_buf;
     struct ai_param params[QPARAMS+1];
     struct choice_stat stats[QSTEPS];
+    enum step * explanation_steps;
 
     uint32_t cache;
     uint32_t qthink;
@@ -219,7 +220,7 @@ struct mcts_ai * create_mcts_ai(const struct geometry * const geometry)
     const uint32_t free_kick_len = geometry->free_kick_len;
     const uint32_t free_kick_reduce = (free_kick_len - 1) * (free_kick_len - 1);
     const size_t cycle_guard_capacity = 4 + qpoints / free_kick_reduce;
-    const size_t sizes[8] = {
+    const size_t sizes[9] = {
         sizeof(struct mcts_ai),
         sizeof(struct state),
         qpoints,
@@ -227,11 +228,12 @@ struct mcts_ai * create_mcts_ai(const struct geometry * const geometry)
         qpoints,
         cycle_guard_capacity * sizeof(struct kick),
         cycle_guard_capacity * sizeof(struct kick),
+        MAX_QANSWERS * MAX_FREE_KICK_SERIE * sizeof(enum step),
         ERROR_BUF_SZ
     };
 
-    void * ptrs[8];
-    void * data = multialloc(8, sizes, ptrs, 64);
+    void * ptrs[9];
+    void * data = multialloc(9, sizes, ptrs, 64);
 
     if (data == NULL) {
         return NULL;
@@ -244,10 +246,12 @@ struct mcts_ai * create_mcts_ai(const struct geometry * const geometry)
     uint8_t * restrict const backup_lines = ptrs[4];
     struct kick * restrict cycle_guard_kicks = ptrs[5];
     struct kick * restrict backup_cycle_guard_kicks = ptrs[6];
-    char * const error_buf = ptrs[7];
+    enum step * const explanation_steps = ptrs[7];
+    char * const error_buf = ptrs[8];
 
     me->state = state;
     me->backup = backup;
+    me->explanation_steps = explanation_steps;
     me->error_buf = error_buf;
 
     me->nodes = NULL;
@@ -1004,6 +1008,8 @@ static enum step ai_go(
         explanation->time = (finish - start) / CLOCKS_PER_SEC;
 
         size_t qstats = 1;
+        enum step * restrict explanation_steps = me->explanation_steps;
+
         for (enum step step=0; step<QSTEPS; ++step) {
             const uint32_t ichild = root->children[step];
             if (ichild == 0) {
@@ -1018,11 +1024,16 @@ static enum step ai_go(
                 norm_score = 0.5 * (score + qgames) / (double)qgames;
             }
 
-            const size_t i = step == result ? 0 : qstats;
-            me->stats[i].step = step;
-            me->stats[i].qgames = child->qgames;
-            me->stats[i].score = norm_score;
-            qstats += !!i;
+            *explanation_steps = step;
+            const size_t istat  = step == result ? 0 : qstats;
+            struct choice_stat * restrict const stat = me->stats + istat;
+            stat->steps = explanation_steps++;
+            stat->qsteps = 1;
+            stat->ball = child->ball;
+            stat->qgames = child->qgames;
+            stat->score = norm_score;
+
+            qstats += !!istat;
         }
 
         explanation->qstats = qstats;
