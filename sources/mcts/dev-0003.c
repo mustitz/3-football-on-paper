@@ -281,10 +281,11 @@ static int mcts_ai_reset(
 
     struct mcts_ai * restrict const me = create_mcts_ai(geometry);
     if (me == NULL) {
-        snprintf(me->error_buf, ERROR_BUF_SZ, "Bad alloc for create_mcts_ai.");
-        ai->error = me->error_buf;
+        ai->error = "Bad alloc for create_mcts_ai.";
         return errno;
     }
+
+    me->warns = &ai->warns;
 
     const struct ai_param * ptr = ai->get_params(ai);
     for (; ptr->name != NULL; ++ptr) {
