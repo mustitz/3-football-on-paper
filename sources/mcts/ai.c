@@ -106,7 +106,8 @@ struct node
     int32_t score;
     int32_t qgames;
     union node_opts opts;
-    int32_t ball;
+    int16_t ball;
+    uint16_t mpack;  /* middle pack: bits 3..18 of packed serie */
     int32_t children[QSTEPS];
 };
 
@@ -841,13 +842,21 @@ static int pack_serie(
         return 1;
     }
 
-    uint32_t packed = 0;
-
-    for (int i=0; i<qsteps; ++i) {
+    /* Pack steps in reverse order: first step ends up in lowest bits */
+    uint64_t packed = 0;
+    for (int i = qsteps - 1; i >= 0; --i) {
         packed = (packed << 3) | steps[i];
     }
 
-    node->children[QSTEPS-1] = packed;
+    /* Split into 3 parts:
+     * bits [0..2]     = first step → opts.step (3 bits)
+     * bits [3..18]    = middle 16 bits → mpack (16 bits)
+     * bits [19..50]   = high 32 bits → children[QSTEPS-1] (32 bits)
+     * Total: 51 bits = 17 steps max
+     */
+    node->opts.step = packed & 7;
+    node->mpack = (packed >> 3) & 0xFFFF;
+    node->children[QSTEPS-1] = packed >> (3 + 16);
     node->opts.qsteps = qsteps;
     return 0;
 }
@@ -857,9 +866,15 @@ static void unpack_serie(
     enum step * restrict const steps)
 {
     const int qsteps = node->opts.qsteps;
-    uint32_t packed = node->children[QSTEPS-1];
 
-    for (int i = qsteps - 1; i >= 0; --i) {
+    /* Reconstruct 51-bit packed value */
+    uint64_t packed = 0;
+    packed |= node->opts.step & 7;
+    packed |= (uint64_t)node->mpack << 3;
+    packed |= (uint64_t)node->children[QSTEPS-1] << (3 + 16);
+
+    /* Unpack steps in forward order */
+    for (int i = 0; i < qsteps; ++i) {
         steps[i] = packed & 7;
         packed >>= 3;
     }
@@ -2198,6 +2213,84 @@ int test_mcts_ai_unstep(void)
     }
 
     destroy_state(check_state);
+    free_ctx();
+    return 0;
+}
+
+static void run_pack_unpack_test(
+    struct node * restrict const node,
+    const enum step * const steps,
+    const int qsteps)
+{
+    struct bsf_serie test_serie;
+    test_serie.qsteps = qsteps;
+    test_serie.steps = (enum step *)steps;
+
+    node->opts.qsteps = test_serie.qsteps;
+
+    const int pack_status = pack_serie(node, &test_serie);
+    if (pack_status != 0) {
+        test_fail("pack_serie failed with status %d for %d steps", pack_status, qsteps);
+    }
+
+    /* Check that first step is stored in opts.step */
+    if (node->opts.step != test_serie.steps[0]) {
+        test_fail("node->opts.step mismatch for %d steps: expected %s, got %s",
+            qsteps, step_names[test_serie.steps[0]], step_names[node->opts.step]);
+    }
+
+    enum step unpacked[MAX_FREE_KICK_SERIE];
+    unpack_serie(node, unpacked);
+
+    for (int i = 0; i < test_serie.qsteps; ++i) {
+        if (unpacked[i] != test_serie.steps[i]) {
+            test_fail("pack/unpack mismatch at step %d (of %d): expected %s, got %s",
+                i, qsteps, step_names[test_serie.steps[i]], step_names[unpacked[i]]);
+        }
+    }
+}
+
+int test_pack_unpack_serie(void)
+{
+    const uint32_t cache = 64 * sizeof(struct node);
+
+    must_init_ctx(&protocol_empty);
+    struct ai * restrict const ai = ctx->ai;
+    struct mcts_ai * restrict const me = ctx->mcts;
+
+    must_set_param(ai, "cache", &cache);
+    reset_cache(me);
+
+    struct node * restrict const node = must_alloc_node(me, NODE_P);
+
+    /* Test 1: Single step */
+    enum step steps_1[] = { EAST };
+    run_pack_unpack_test(node, steps_1, ARRAY_LEN(steps_1));
+
+    /* Test 2: Two steps */
+    enum step steps_2[] = { EAST, SOUTH };
+    run_pack_unpack_test(node, steps_2, ARRAY_LEN(steps_2));
+
+    /* Test 3: Ten steps (old maximum with 32 bits) */
+    enum step steps_10[] = {
+        EAST, WEST, NORTH, SOUTH, EAST, WEST, NORTH, SOUTH, EAST, WEST
+    };
+    run_pack_unpack_test(node, steps_10, ARRAY_LEN(steps_10));
+
+    /* Test 4: Twelve steps (original problem case that triggered overflow) */
+    enum step steps_12[] = {
+        EAST, EAST, SOUTH_EAST, NORTH, NORTH_WEST, SOUTH,
+        NORTH, NORTH_WEST, NORTH_WEST, NORTH_EAST, EAST, SOUTH_EAST
+    };
+    run_pack_unpack_test(node, steps_12, ARRAY_LEN(steps_12));
+
+    /* Test 5: Seventeen steps (new maximum with 51 bits) */
+    enum step steps_17[] = {
+        EAST, WEST, NORTH, SOUTH, EAST, WEST, NORTH, SOUTH,
+        EAST, WEST, NORTH, SOUTH, EAST, WEST, NORTH, SOUTH, EAST
+    };
+    run_pack_unpack_test(node, steps_17, ARRAY_LEN(steps_17));
+
     free_ctx();
     return 0;
 }

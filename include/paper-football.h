@@ -255,7 +255,7 @@ enum cycle_result cycle_guard_push(struct cycle_guard * restrict me, int from, i
 
 
 
-#define MAX_FREE_KICK_SERIE       32
+#define MAX_FREE_KICK_SERIE       17
 
 struct preparation
 {
