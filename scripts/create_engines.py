@@ -13,9 +13,11 @@ ENGINES_DIR = STATS_DIR / 'engines' / engine_name
 template = """binary: paper-football
 commit: {commit}
 params:
-  qthink: {qthink}
+  {ai_line}qthink: {qthink}
   max_depth: 128
   C: {C}"""
+
+ai_line = '' if ai is None else f"ai: {ai}\n  "
 
 for qthink in qthink_values:
     for C in C_values:
@@ -33,7 +35,7 @@ for qthink in qthink_values:
         if config_file.exists():
             print(f"Skipped: {engine_name} (already exists)")
 
-        content = template.format(commit=commit, qthink=qthink, C=C)
+        content = template.format(ai_line=ai_line, commit=commit, qthink=qthink, C=C)
 
         with open(config_file, 'w') as f:
             f.write(content)

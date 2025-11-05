@@ -72,6 +72,8 @@ class Engine:
         self._start_process()
 
     def _start_process(self):
+        ai = self.params.get('ai', 'mcts')
+
         self.process = subprocess.Popen(
             [self.path],
             stdin=subprocess.PIPE,
@@ -84,9 +86,11 @@ class Engine:
 
         self._send(f"srand {self.seed}")
         self._send(f"new {self.dims.width} {self.dims.height} {self.dims.goal_width} {self.dims.free_kick}")
-        self._send("set ai mcts")
+        self._send(f"set ai {ai}")
 
         for param, value in self.params.items():
+            if param == 'ai':
+                continue
             self._send(f"set ai.{param} {value}")
 
     def _send(self, text, timeout=None):
