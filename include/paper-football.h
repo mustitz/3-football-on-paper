@@ -563,6 +563,15 @@ struct ai
 
 const struct warn * ai_get_warn(struct ai * restrict const ai, int index);
 
+struct ai_desc
+{
+    const char * name;
+    const char * sha512;
+    int (*init_ai)(struct ai * restrict const ai, const struct geometry * const geometry);
+};
+
+extern struct ai_desc ai_list[];
+
 int init_random_ai(
     struct ai * restrict const ai,
     const struct geometry * const geometry);

@@ -1,4 +1,14 @@
+#include "hashes.h"
 #include "paper-football.h"
+
+#ifndef MAKE_CHECK
+struct ai_desc ai_list[] = {
+    {      "mcts",       MCTS_AI_HASH, &init_mcts_ai },
+    {  "dev_0003", MCTS_DEV_0003_HASH, &init_dev_0003_ai },
+    {    "random",     RANDOM_AI_HASH, &init_random_ai },
+    { NULL, NULL, NULL }
+};
+#endif
 
 enum cycle_result cycle_guard_push(struct cycle_guard * restrict me, int from, int to)
 {

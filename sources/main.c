@@ -1,4 +1,3 @@
-#include "hashes.h"
 #include "paper-football.h"
 #include "parser.h"
 
@@ -50,20 +49,6 @@ struct keyword_desc keywords[] = {
 };
 
 enum ai_go_flags { EXPLAIN_TIME, EXPLAIN_SCORE, EXPLAIN_STEPS, EXPLAIN_CACHE };
-
-struct ai_desc
-{
-    const char * name;
-    const char * sha512;
-    int (*init_ai)(struct ai * restrict const ai, const struct geometry * const geometry);
-};
-
-struct ai_desc ai_list[] = {
-    {      "mcts",       MCTS_AI_HASH, &init_mcts_ai },
-    {  "dev_0003", MCTS_DEV_0003_HASH, &init_dev_0003_ai },
-    {    "random",     RANDOM_AI_HASH, &init_random_ai },
-    { NULL, NULL, NULL }
-};
 
 struct cmd_parser
 {
